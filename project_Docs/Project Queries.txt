@@ -1,0 +1,92 @@
+Q1. userRepo is an interface class and when we annotate @service or @repository on any interface class then how its work internally. In future how we get its component and object to 
+use by using @Autowired and @Bean or @component? we can not create an object of Interface class, but how Spring can do this?
+
+===========================================================================================
+
+refer the unit testwhere we printing the class anme and package name of intrface object used in our code. (public void repoTest())
+output: jdk.proxy2.$Proxy115: is the className of userRepo and its package name is:jdk.proxy2
+
+so, internally, springboot creates dynamically the class at runtime by springboot. "jdk.proxy2.$Proxy115" this class is implementation class of userRepo created dynamically which is kept inside
+jdk.proxy2 folder. and everytime we rerun the project the implementation class will a different name.
+
+so, whenever spring container starts, at that time all repository interfaces will be scanned and as we dont create its implementation manually in our code so spring dynamically creates
+implementation classes for those. (its called proxy classes)
+EX:
+@Autowired
+private UserRepository userRepo;
+
+then an object of its implementation class (jdk.proxy2.$Proxy115 tempRef) injected on that class for use.
+
+
+==============================================================================================
+
+1. CRUD Operation on UserRepository
+2. Global Exception handling
+
+ this is really important , bcoz getting result is not everything , if wrong link or request fired or data validation wrong then we can not allow our JDK to throw a technical error
+ like; 
+Get single user: http://localhost:9091/api/users/8 , here UserID=8 not exist, so it will throw 10/20 line of error message with exception classes
+ "timestamp": "2024-05-27T19:13:21.001+00:00",
+    "status": 500,
+    "error": "Internal Server Error",
+    "trace": "java.util.UnknownFormatConversionException: Conversion = 'l'\r\n\tat java.base/java.util.Formatter$FormatSpecifier
+	
+if we throw such errors from backend then client wont understand this message at all. hence its very important to handle such exception and throw meaningful error message 
+with reason to client or frontend or API's
+
+But now, if ID=2345 sent, which is not in DB, then in backend it will throw User_not_found_exception, we will catch the messages and handle it globallyExceptionHandler class with help of 
+springboot, we will send meaningful error messages to client.
+
+other inbuilt errors also handled by using its inbuilt methods;
+
+HttpRequestMethodNotSupportedException
+MethodArgumentNotValidException
+MissingPathVariableException
+NoResourceFoundException
+
+3. Java provides many 3rd party libraries like ModelMapper (means convert 1 object to another type object) which will do our job easily. here we dont need to create those functionalities manually 
+like; userToDto() and DtoToUser()
+we are going to implement this Mapper object for all Entity classess to convert the object to its respective DTO class.
+
+https://modelmapper.org/user-manual/how-it-works/
+
+4. validating Data using "Bean Validator" with custom messages
+
+the data we pass to DB, if invalid then we dont want to pass those data to DB. we will throw error messages
+- Java Bean is validated with JSR 380 known as Bean validation 2.0
+- JSR 380 is specification for the java API for bean valiadation. Properties of Bean meet the specific criteria.
+- Hibernate Validator is a implementation of JSR 380 validation API.
+
+when we create/register a new user, it goes to PostMapping Api of our controller, where we are holding the RequestBody data in our UserDto.class, hence we will use validation on this.
+but inorder to enable the validation, we must need to use @Valid on that controller mapping.
+We will apply validation on all DTO classess.(because that is where we hold the data through objects of DTO)
+
+5. JPA Exception
+
+Could not write JSON: Document nesting depth (1001) exceeds the maximum allowed (1000, from `StreamWriteConstraints.getMaxNestingDepth()`)]
+
+our post category refering User then from User to post like that, it goes to infinite recurssion in postman
+simillarly the data flow happens here like; PostDto -> Category -> from Category we again found -> Post 
+
+=====================================================================================
+
+Category Model
+
+1. CRUD Operations (create, update delete, get and getAll) with help of controller, service and repository layers
+2. From API we are getting data on different class (called CategoryDto.class), but while processing data in service layer and fetch or pass data to DB, in that case we have configured our Category entity class, hence we are doinf Mapping of Objects.
+3. Category Model is an Independent model. and will be used by other entities (through FK) to refer the products.
+
+=================================================================================
+
+Post Model
+
+1. implemented the Post and its DTO class. Post class have 2 FKs, it meand Post entity holds OneToMany relation with both Category and User. but implementing this causes infinite write objects on console so we handled it by passing the data to DTO to avoid loop.
+2. CRUD operations implemented (other then that fetch by User object and fetch by category object, searching posts by keyword functinalities included)
+3. here we are going to implement paggination and sorting of data for that we need to fetch 3 things from user;
+	a. pageSize and pageNumber
+	b. Sorting by any one field
+		http://localhost:port/posts?pageSize=5&pageNo=2&sortBy=title
+	
+	pagination will be implemented on the entity, on which we will implement it. 1st we are planning to implement it on Post entity.
+	JpaRepository already extends PaggingAndSortingRepository, it means our JPArepo, already have all functionalities og sorting and pagging methods.(check inbuilt classes and its methods)
+	while desining, we need to take the page info through parameter, as well as we need to return our custom response to user/client, along with the data we also need to share which page we are and how many records still we have to cover, in last page number etc...
